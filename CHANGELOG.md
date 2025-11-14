@@ -13,6 +13,7 @@ This is an alpha version! The changes listed here are not final.
 - Action output: display the teams required for review in the action output.
 
 ### Changed
+- Update package dependencies.
 - Use the node24 runner instead of the deprecated node20 runner.
 
 ## [4.1.2] - 2025-09-08
