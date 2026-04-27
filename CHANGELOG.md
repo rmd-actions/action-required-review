@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.2-alpha] - unreleased
+
+This is an alpha version! The changes listed here are not final.
+
+### Changed
+- Internal: No longer require automattic/jetpack-changelogger as a per-project dev dependency.
+
 ## [5.0.1] - 2026-04-13
 ### Changed
 - Convert to ESM. This should not affect the operation of the action. [#46904]
@@ -129,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release
 
+[5.0.2-alpha]: https://github.com/Automattic/action-required-review/compare/v5.0.1...v5.0.2-alpha
 [5.0.1]: https://github.com/Automattic/action-required-review/compare/v5.0.0...v5.0.1
 [5.0.0]: https://github.com/Automattic/action-required-review/compare/v4.1.2...v5.0.0
 [4.1.2]: https://github.com/Automattic/action-required-review/compare/v4.1.1...v4.1.2
