@@ -1357,13 +1357,13 @@ function stringTemplate (string, object) {
 
 /***/ }),
 
-/***/ 8542:
+/***/ 7776:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 
 
-const pico = __nccwpck_require__(9529);
-const utils = __nccwpck_require__(3585);
+const pico = __nccwpck_require__(839);
+const utils = __nccwpck_require__(5844);
 
 function picomatch(glob, options, returnState = false) {
   // default to os.platform()
@@ -1381,13 +1381,15 @@ module.exports = picomatch;
 
 /***/ }),
 
-/***/ 905:
+/***/ 1117:
 /***/ ((module) => {
 
 
 
 const WIN_SLASH = '\\\\/';
 const WIN_NO_SLASH = `[^${WIN_SLASH}]`;
+
+const DEFAULT_MAX_EXTGLOB_RECURSION = 0;
 
 /**
  * Posix glob regex
@@ -1455,6 +1457,7 @@ const WINDOWS_CHARS = {
  */
 
 const POSIX_REGEX_SOURCE = {
+  __proto__: null,
   alnum: 'a-zA-Z0-9',
   alpha: 'a-zA-Z',
   ascii: '\\x00-\\x7F',
@@ -1472,6 +1475,7 @@ const POSIX_REGEX_SOURCE = {
 };
 
 module.exports = {
+  DEFAULT_MAX_EXTGLOB_RECURSION,
   MAX_LENGTH: 1024 * 64,
   POSIX_REGEX_SOURCE,
 
@@ -1485,6 +1489,7 @@ module.exports = {
 
   // Replace globs with equivalent patterns to reduce parsing time.
   REPLACEMENTS: {
+    __proto__: null,
     '***': '*',
     '**/**': '**',
     '**/**/**': '**'
@@ -1567,13 +1572,13 @@ module.exports = {
 
 /***/ }),
 
-/***/ 2566:
+/***/ 2585:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 
 
-const constants = __nccwpck_require__(905);
-const utils = __nccwpck_require__(3585);
+const constants = __nccwpck_require__(1117);
+const utils = __nccwpck_require__(5844);
 
 /**
  * Constants
@@ -1615,6 +1620,277 @@ const expandRange = (args, options) => {
 
 const syntaxError = (type, char) => {
   return `Missing ${type}: "${char}" - use "\\\\${char}" to match literal characters`;
+};
+
+const splitTopLevel = input => {
+  const parts = [];
+  let bracket = 0;
+  let paren = 0;
+  let quote = 0;
+  let value = '';
+  let escaped = false;
+
+  for (const ch of input) {
+    if (escaped === true) {
+      value += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      value += ch;
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      quote = quote === 1 ? 0 : 1;
+      value += ch;
+      continue;
+    }
+
+    if (quote === 0) {
+      if (ch === '[') {
+        bracket++;
+      } else if (ch === ']' && bracket > 0) {
+        bracket--;
+      } else if (bracket === 0) {
+        if (ch === '(') {
+          paren++;
+        } else if (ch === ')' && paren > 0) {
+          paren--;
+        } else if (ch === '|' && paren === 0) {
+          parts.push(value);
+          value = '';
+          continue;
+        }
+      }
+    }
+
+    value += ch;
+  }
+
+  parts.push(value);
+  return parts;
+};
+
+const isPlainBranch = branch => {
+  let escaped = false;
+
+  for (const ch of branch) {
+    if (escaped === true) {
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (/[?*+@!()[\]{}]/.test(ch)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const normalizeSimpleBranch = branch => {
+  let value = branch.trim();
+  let changed = true;
+
+  while (changed === true) {
+    changed = false;
+
+    if (/^@\([^\\()[\]{}|]+\)$/.test(value)) {
+      value = value.slice(2, -1);
+      changed = true;
+    }
+  }
+
+  if (!isPlainBranch(value)) {
+    return;
+  }
+
+  return value.replace(/\\(.)/g, '$1');
+};
+
+const hasRepeatedCharPrefixOverlap = branches => {
+  const values = branches.map(normalizeSimpleBranch).filter(Boolean);
+
+  for (let i = 0; i < values.length; i++) {
+    for (let j = i + 1; j < values.length; j++) {
+      const a = values[i];
+      const b = values[j];
+      const char = a[0];
+
+      if (!char || a !== char.repeat(a.length) || b !== char.repeat(b.length)) {
+        continue;
+      }
+
+      if (a === b || a.startsWith(b) || b.startsWith(a)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+const parseRepeatedExtglob = (pattern, requireEnd = true) => {
+  if ((pattern[0] !== '+' && pattern[0] !== '*') || pattern[1] !== '(') {
+    return;
+  }
+
+  let bracket = 0;
+  let paren = 0;
+  let quote = 0;
+  let escaped = false;
+
+  for (let i = 1; i < pattern.length; i++) {
+    const ch = pattern[i];
+
+    if (escaped === true) {
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      quote = quote === 1 ? 0 : 1;
+      continue;
+    }
+
+    if (quote === 1) {
+      continue;
+    }
+
+    if (ch === '[') {
+      bracket++;
+      continue;
+    }
+
+    if (ch === ']' && bracket > 0) {
+      bracket--;
+      continue;
+    }
+
+    if (bracket > 0) {
+      continue;
+    }
+
+    if (ch === '(') {
+      paren++;
+      continue;
+    }
+
+    if (ch === ')') {
+      paren--;
+
+      if (paren === 0) {
+        if (requireEnd === true && i !== pattern.length - 1) {
+          return;
+        }
+
+        return {
+          type: pattern[0],
+          body: pattern.slice(2, i),
+          end: i
+        };
+      }
+    }
+  }
+};
+
+const getStarExtglobSequenceOutput = pattern => {
+  let index = 0;
+  const chars = [];
+
+  while (index < pattern.length) {
+    const match = parseRepeatedExtglob(pattern.slice(index), false);
+
+    if (!match || match.type !== '*') {
+      return;
+    }
+
+    const branches = splitTopLevel(match.body).map(branch => branch.trim());
+    if (branches.length !== 1) {
+      return;
+    }
+
+    const branch = normalizeSimpleBranch(branches[0]);
+    if (!branch || branch.length !== 1) {
+      return;
+    }
+
+    chars.push(branch);
+    index += match.end + 1;
+  }
+
+  if (chars.length < 1) {
+    return;
+  }
+
+  const source = chars.length === 1
+    ? utils.escapeRegex(chars[0])
+    : `[${chars.map(ch => utils.escapeRegex(ch)).join('')}]`;
+
+  return `${source}*`;
+};
+
+const repeatedExtglobRecursion = pattern => {
+  let depth = 0;
+  let value = pattern.trim();
+  let match = parseRepeatedExtglob(value);
+
+  while (match) {
+    depth++;
+    value = match.body.trim();
+    match = parseRepeatedExtglob(value);
+  }
+
+  return depth;
+};
+
+const analyzeRepeatedExtglob = (body, options) => {
+  if (options.maxExtglobRecursion === false) {
+    return { risky: false };
+  }
+
+  const max =
+    typeof options.maxExtglobRecursion === 'number'
+      ? options.maxExtglobRecursion
+      : constants.DEFAULT_MAX_EXTGLOB_RECURSION;
+
+  const branches = splitTopLevel(body).map(branch => branch.trim());
+
+  if (branches.length > 1) {
+    if (
+      branches.some(branch => branch === '') ||
+      branches.some(branch => /^[*?]+$/.test(branch)) ||
+      hasRepeatedCharPrefixOverlap(branches)
+    ) {
+      return { risky: true };
+    }
+  }
+
+  for (const branch of branches) {
+    const safeOutput = getStarExtglobSequenceOutput(branch);
+    if (safeOutput) {
+      return { risky: true, safeOutput };
+    }
+
+    if (repeatedExtglobRecursion(branch) > max) {
+      return { risky: true };
+    }
+  }
+
+  return { risky: false };
 };
 
 /**
@@ -1797,6 +2073,8 @@ const parse = (input, options) => {
     token.prev = prev;
     token.parens = state.parens;
     token.output = state.output;
+    token.startIndex = state.index;
+    token.tokensIndex = tokens.length;
     const output = (opts.capture ? '(' : '') + token.open;
 
     increment('parens');
@@ -1806,6 +2084,34 @@ const parse = (input, options) => {
   };
 
   const extglobClose = token => {
+    const literal = input.slice(token.startIndex, state.index + 1);
+    const body = input.slice(token.startIndex + 2, state.index);
+    const analysis = analyzeRepeatedExtglob(body, opts);
+
+    if ((token.type === 'plus' || token.type === 'star') && analysis.risky) {
+      const safeOutput = analysis.safeOutput
+        ? (token.output ? '' : ONE_CHAR) + (opts.capture ? `(${analysis.safeOutput})` : analysis.safeOutput)
+        : undefined;
+      const open = tokens[token.tokensIndex];
+
+      open.type = 'text';
+      open.value = literal;
+      open.output = safeOutput || utils.escapeRegex(literal);
+
+      for (let i = token.tokensIndex + 1; i < tokens.length; i++) {
+        tokens[i].value = '';
+        tokens[i].output = '';
+        delete tokens[i].suffix;
+      }
+
+      state.output = token.output + open.output;
+      state.backtrack = true;
+
+      push({ type: 'paren', extglob: true, value, output: '' });
+      decrement('parens');
+      return;
+    }
+
     let output = token.close + (opts.capture ? ')' : '');
     let rest;
 
@@ -2659,15 +2965,15 @@ module.exports = parse;
 
 /***/ }),
 
-/***/ 9529:
+/***/ 839:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 
 
-const scan = __nccwpck_require__(7033);
-const parse = __nccwpck_require__(2566);
-const utils = __nccwpck_require__(3585);
-const constants = __nccwpck_require__(905);
+const scan = __nccwpck_require__(6248);
+const parse = __nccwpck_require__(2585);
+const utils = __nccwpck_require__(5844);
+const constants = __nccwpck_require__(1117);
 const isObject = val => val && typeof val === 'object' && !Array.isArray(val);
 
 /**
@@ -2897,6 +3203,14 @@ picomatch.scan = (input, options) => scan(input, options);
  * Compile a regular expression from the `state` object returned by the
  * [parse()](#parse) method.
  *
+ * ```js
+ * const picomatch = require('picomatch');
+ * const state = picomatch.parse('*.js');
+ * // picomatch.compileRe(state[, options]);
+ *
+ * console.log(picomatch.compileRe(state));
+ * //=> /^(?:(?!\.)(?=.)[^/]*?\.js)$/
+ * ```
  * @param {Object} `state`
  * @param {Object} `options`
  * @param {Boolean} `returnOutput` Intended for implementors, this argument allows you to return the raw output from the parser.
@@ -2932,10 +3246,10 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
  *
  * ```js
  * const picomatch = require('picomatch');
- * const state = picomatch.parse('*.js');
- * // picomatch.compileRe(state[, options]);
+ * // picomatch.makeRe(state[, options]);
  *
- * console.log(picomatch.compileRe(state));
+ * const result = picomatch.makeRe('*.js');
+ * console.log(result);
  * //=> /^(?:(?!\.)(?=.)[^/]*?\.js)$/
  * ```
  * @param {String} `state` The object returned from the `.parse` method.
@@ -3007,12 +3321,12 @@ module.exports = picomatch;
 
 /***/ }),
 
-/***/ 7033:
+/***/ 6248:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 
 
-const utils = __nccwpck_require__(3585);
+const utils = __nccwpck_require__(5844);
 const {
   CHAR_ASTERISK,             /* * */
   CHAR_AT,                   /* @ */
@@ -3029,7 +3343,7 @@ const {
   CHAR_RIGHT_CURLY_BRACE,    /* } */
   CHAR_RIGHT_PARENTHESES,    /* ) */
   CHAR_RIGHT_SQUARE_BRACKET  /* ] */
-} = __nccwpck_require__(905);
+} = __nccwpck_require__(1117);
 
 const isPathSeparator = code => {
   return code === CHAR_FORWARD_SLASH || code === CHAR_BACKWARD_SLASH;
@@ -3405,7 +3719,7 @@ module.exports = scan;
 
 /***/ }),
 
-/***/ 3585:
+/***/ 5844:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 /*global navigator*/
@@ -3416,7 +3730,7 @@ const {
   REGEX_REMOVE_BACKSLASH,
   REGEX_SPECIAL_CHARS,
   REGEX_SPECIAL_CHARS_GLOBAL
-} = __nccwpck_require__(905);
+} = __nccwpck_require__(1117);
 
 exports.isObject = val => val !== null && typeof val === 'object' && !Array.isArray(val);
 exports.hasRegexChars = str => REGEX_SPECIAL_CHARS.test(str);
@@ -43007,8 +43321,8 @@ var core = __nccwpck_require__(7300);
 var github = __nccwpck_require__(5060);
 // EXTERNAL MODULE: ../../../node_modules/.pnpm/error@10.4.0/node_modules/error/index.js
 var node_modules_error = __nccwpck_require__(3954);
-// EXTERNAL MODULE: ../../../node_modules/.pnpm/picomatch@4.0.2/node_modules/picomatch/index.js
-var picomatch = __nccwpck_require__(8542);
+// EXTERNAL MODULE: ../../../node_modules/.pnpm/picomatch@4.0.4/node_modules/picomatch/index.js
+var picomatch = __nccwpck_require__(7776);
 ;// CONCATENATED MODULE: ./src/team-members.js
 
 
