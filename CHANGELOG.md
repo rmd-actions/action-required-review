@@ -11,6 +11,7 @@ This is an alpha version! The changes listed here are not final.
 
 ### Changed
 - Internal: No longer require automattic/jetpack-changelogger as a per-project dev dependency.
+- Update package dependencies.
 
 ## [5.0.1] - 2026-04-13
 ### Changed
