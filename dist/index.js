@@ -43386,7 +43386,7 @@ async function requestReview( teams ) {
 		} );
 		_actions_core__WEBPACK_IMPORTED_MODULE_0__/* .info */ .um( `Requested review(s) from ${ teams }` );
 	} catch ( err ) {
-		throw new Error( `Unable to request review.\n  Error: ${ err }` );
+		throw new Error( `Unable to request review.\n  Error: ${ err }`, { cause: err } );
 	}
 }
 
