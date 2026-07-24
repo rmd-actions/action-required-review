@@ -16452,8 +16452,8 @@ function endGroup() {
 	issue("endgroup");
 }
 //#endregion
-//#region ../../../node_modules/.pnpm/js-yaml@5.2.1/node_modules/js-yaml/dist/js-yaml.mjs
-/*! js-yaml 5.2.1 https://github.com/nodeca/js-yaml @license MIT */
+//#region ../../../node_modules/.pnpm/js-yaml@5.2.2/node_modules/js-yaml/dist/js-yaml.mjs
+/*! js-yaml 5.2.2 https://github.com/nodeca/js-yaml @license MIT */
 var NOT_RESOLVED = Symbol("NOT_RESOLVED");
 var MERGE_KEY = Symbol("MERGE_KEY");
 function defineScalarTag(tagName, options) {
@@ -17801,6 +17801,17 @@ function addMappingEvent(state, start, anchorStart, anchorEnd, tagStart, tagEnd,
 		style
 	});
 }
+function insertFlowPairMappingEvent(state, snapshot) {
+	state.events.splice(snapshot.eventsLength, 0, {
+		type: 3,
+		start: snapshot.position,
+		anchorStart: NO_RANGE$1,
+		anchorEnd: NO_RANGE$1,
+		tagStart: NO_RANGE$1,
+		tagEnd: NO_RANGE$1,
+		style: 2
+	});
+}
 function addScalarEvent(state, valueStart, valueEnd, anchorStart, anchorEnd, tagStart, tagEnd, style, chomping = 1, indent = -1, fast = false) {
 	state.events.push({
 		type: 4,
@@ -18244,12 +18255,8 @@ function readFlowCollection(state, nodeIndent, props) {
 			state.position++;
 			skipFlowSeparationSpace(state, nodeIndent);
 			if (!isMapping) {
-				restoreState(state, entryStart);
-				addMappingEvent(state, entryStart.position, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, 2);
-				if (!parseNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true)) addEmptyScalarEvent(state);
-				skipFlowSeparationSpace(state, nodeIndent);
-				state.position++;
-				skipFlowSeparationSpace(state, nodeIndent);
+				insertFlowPairMappingEvent(state, entryStart);
+				if (!keyWasRead) addEmptyScalarEvent(state);
 			} else if (!keyWasRead) addEmptyScalarEvent(state);
 			if (!parseNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true)) addEmptyScalarEvent(state);
 			skipFlowSeparationSpace(state, nodeIndent);
@@ -18259,9 +18266,8 @@ function readFlowCollection(state, nodeIndent, props) {
 			addEmptyScalarEvent(state);
 		} else if (isMapping) addEmptyScalarEvent(state);
 		else if (isPair) {
-			restoreState(state, entryStart);
-			addMappingEvent(state, entryStart.position, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, 2);
-			parseNode(state, nodeIndent, CONTEXT_FLOW_IN, false, true);
+			insertFlowPairMappingEvent(state, entryStart);
+			if (!keyWasRead) addEmptyScalarEvent(state);
 			addEmptyScalarEvent(state);
 			addPopEvent(state);
 		}
