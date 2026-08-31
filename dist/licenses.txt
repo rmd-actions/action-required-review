@@ -1,5 +1,5 @@
 Name: @actions/core
-Version: 3.0.0
+Version: 3.0.1
 License: MIT
 Private: false
 Description: Actions core lib
@@ -56,7 +56,7 @@ THE SOFTWARE.
 ---
 
 Name: undici
-Version: 6.26.0
+Version: 6.27.0
 License: MIT
 Private: false
 Description: An HTTP/1.1 client, written from scratch for Node.js
@@ -214,7 +214,7 @@ THE SOFTWARE.
 ---
 
 Name: @actions/github
-Version: 9.0.0
+Version: 9.1.1
 License: MIT
 Private: false
 Description: Actions github lib
@@ -539,7 +539,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ---
 
 Name: json-with-bigint
-Version: 3.5.8
+Version: 3.5.10
 License: MIT
 Private: false
 Description: JS library that allows you to easily serialize and deserialize data with BigInt values
@@ -607,7 +607,7 @@ THE SOFTWARE.
 ---
 
 Name: @octokit/request
-Version: 10.0.10
+Version: 10.0.11
 License: MIT
 Private: false
 Description: Send parameterized requests to GitHub's APIs with sensible defaults in browsers and Node
